@@ -1,0 +1,8 @@
+# paths.yaml
+
+datasets_path:
+  "datasets"
+evalsets_path:
+  "evalsets"
+results_path:
+  "results"

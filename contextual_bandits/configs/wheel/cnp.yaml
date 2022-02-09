@@ -1,0 +1,6 @@
+dim_x: 2
+dim_y: 5
+dim_hid: 128
+enc_pre_depth: 4
+enc_post_depth: 2
+dec_depth: 3

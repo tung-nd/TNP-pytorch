@@ -1,0 +1,4 @@
+# cmab_models.py
+
+- "uniform"  # first model is a baseline (for regret normalization in comparison of performance)
+- "anp"
