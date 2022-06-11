@@ -7,7 +7,7 @@ nhead: 4
 dropout: 0.0
 num_layers: 6
 num_std_layers: 2
-emnist: True
+bound_std: True
 cov_approx: 'cholesky' # cholesky or lowrank parameterization
 prj_dim: 20
 prj_depth: 4

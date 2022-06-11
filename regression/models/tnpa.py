@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 from torch.distributions.normal import Normal
 from attrdict import AttrDict
 
@@ -20,8 +19,9 @@ class TNPA(TNP):
         nhead,
         dropout,
         num_layers,
-        emnist=False,
-        permute=False
+        bound_std=False,
+        permute=False,
+        pretrain=False
     ):
         super(TNPA, self).__init__(
             dim_x,
@@ -32,7 +32,7 @@ class TNPA(TNP):
             nhead,
             dropout,
             num_layers,
-            emnist
+            bound_std
         )
         
         self.predictor = nn.Sequential(
@@ -42,12 +42,28 @@ class TNPA(TNP):
         )
 
         self.permute = permute
+        self.pretrain = pretrain
+
+    def get_pretrain_data(self, batch):
+        device = batch.xc.device
+        b = batch.xc.shape[0]
+        dim_x, dim_y = batch.xc.shape[-1], batch.yc.shape[-1]
+
+        new_batch = AttrDict()
+        new_batch.xc = torch.zeros((b, 0, dim_x), device=device)
+        new_batch.yc = torch.zeros((b, 0, dim_y), device=device)
+        new_batch.xt = torch.cat((batch.xc, batch.xt), dim=1)
+        new_batch.yt = torch.cat((batch.yc, batch.yt), dim=1)
+
+        return new_batch
 
     def forward(self, batch, reduce_ll=True):
+        if self.training and self.pretrain:
+            return self.forward_pretrain(batch)
         z_target = self.encode(batch, autoreg=True)
         out = self.predictor(z_target)
         mean, std = torch.chunk(out, 2, dim=-1)
-        if self.emnist:
+        if self.bound_std:
             std = 0.05 + 0.95 * F.softplus(std)
         else:
             std = torch.exp(std)
@@ -59,6 +75,24 @@ class TNPA(TNP):
             outs.tar_ll = pred_tar.log_prob(batch.yt).sum(-1).mean()
         else:
             outs.tar_ll = pred_tar.log_prob(batch.yt).sum(-1)
+        outs.loss = - (outs.tar_ll)
+
+        return outs
+
+    def forward_pretrain(self, batch):
+        batch = self.get_pretrain_data(batch)
+        z_target = self.encode(batch, autoreg=True, pretrain=True)
+        out = self.predictor(z_target)
+        mean, std = torch.chunk(out, 2, dim=-1)
+        if self.bound_std:
+            std = 0.05 + 0.95 * F.softplus(std)
+        else:
+            std = torch.exp(std)
+
+        pred_tar = Normal(mean, std)
+
+        outs = AttrDict()
+        outs.tar_ll = pred_tar.log_prob(batch.yt[:, 1:]).sum(-1).mean()
         outs.loss = - (outs.tar_ll)
 
         return outs
@@ -99,7 +133,7 @@ class TNPA(TNP):
             z_target_stacked = self.encode(batch_stacked, autoreg=True)
             out = self.predictor(z_target_stacked)
             mean, std = torch.chunk(out, 2, dim=-1)
-            if self.emnist:
+            if self.bound_std:
                 std = 0.05 + 0.95 * F.softplus(std)
             else:
                 std = torch.exp(std)
@@ -117,4 +151,4 @@ class TNPA(TNP):
         return Normal(mean, std)
 
     def sample(self, xc, yc, xt, num_samples=50):
-        return self.predict(xc, xt, yt, num_samples, return_samples=True)
+        return self.predict(xc, yc, xt, num_samples, return_samples=True)

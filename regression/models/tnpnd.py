@@ -1,10 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
 from torch.distributions.normal import Normal
 from attrdict import AttrDict
-import math
 
 from models.modules import build_mlp
 from models.tnp import TNP
@@ -22,7 +19,7 @@ class TNPND(TNP):
         dropout,
         num_layers,
         num_std_layers,
-        emnist=False,
+        bound_std=False,
         cov_approx='cholesky',
         prj_dim=5,
         prj_depth=4,
@@ -37,9 +34,9 @@ class TNPND(TNP):
             nhead,
             dropout,
             num_layers,
+            bound_std
         )
 
-        self.emnist = emnist
         assert cov_approx in ['cholesky', 'lowrank']
         self.cov_approx = cov_approx
         
@@ -66,7 +63,7 @@ class TNPND(TNP):
         if self.cov_approx == 'cholesky':
             std_tril = torch.bmm(std_prj, std_prj.transpose(1,2))
             std_tril = std_tril.tril()
-            if self.emnist:
+            if self.bound_std:
                 diag_ids = torch.arange(num_target*dim_y, device='cuda')
                 std_tril[:, diag_ids, diag_ids] = 0.05 + 0.95*torch.tanh(std_tril[:, diag_ids, diag_ids])
             pred_tar = torch.distributions.multivariate_normal.MultivariateNormal(mean, scale_tril=std_tril)

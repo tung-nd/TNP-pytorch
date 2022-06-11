@@ -1,7 +1,6 @@
 import torch
 from attrdict import AttrDict
-from torch.utils.data import DataLoader
-from torch.distributions import StudentT, Normal
+from torch.distributions import StudentT
 
 def img_to_task(img, num_ctx=None,
         max_num_points=None, target_all=False, t_noise=None):

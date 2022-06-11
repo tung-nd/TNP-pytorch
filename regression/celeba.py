@@ -1,26 +1,19 @@
 import os
 import os.path as osp
-
 import argparse
 import yaml
-
 import torch
-import torch.nn as nn
 import numpy as np
-import math
 import time
-import matplotlib.pyplot as plt
+import uncertainty_toolbox as uct
 from attrdict import AttrDict
 from tqdm import tqdm
 from copy import deepcopy
 from PIL import Image
 
-import uncertainty_toolbox as uct
-
 from data.image import img_to_task, task_to_img
 from data.celeba import CelebA
-
-from utils.misc import load_module, logmeanexp
+from utils.misc import load_module
 from utils.paths import results_path, evalsets_path
 from utils.log import get_logger, RunningAverage
 
@@ -37,7 +30,6 @@ def main():
             default='train')
     parser.add_argument('--expid', type=str, default='default')
     parser.add_argument('--resume', type=str, default=None)
-    parser.add_argument('--gpu', type=int, default=0)  # default(-1): device="cpu"
 
     # Data
     parser.add_argument('--max_num_points', type=int, default=200)
@@ -46,6 +38,7 @@ def main():
     parser.add_argument('--model', type=str, default="tnpa")
 
     # Train
+    parser.add_argument('--pretrain', action='store_true', default=False)
     parser.add_argument('--train_seed', type=int, default=0)
     parser.add_argument('--train_batch_size', type=int, default=100)
     parser.add_argument('--train_num_samples', type=int, default=4)
@@ -74,7 +67,6 @@ def main():
     parser.add_argument('--t_noise', type=float, default=None)
 
     args = parser.parse_args()
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
     if args.expid is not None:
         args.root = osp.join(results_path, 'celeba', args.model, args.expid)
@@ -84,6 +76,10 @@ def main():
     model_cls = getattr(load_module(f'models/{args.model}.py'), args.model.upper())
     with open(f'configs/celeba/{args.model}.yaml', 'r') as f:
         config = yaml.safe_load(f)
+    if args.pretrain:
+        assert args.model == 'tnpa'
+        config['pretrain'] = args.pretrain
+        
     if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp", "tnpd", "tnpa", "tnpnd"]:
         model = model_cls(**config)
     model.cuda()
@@ -534,11 +530,7 @@ def plot(args, model):
         else:
             outs = model.predict(batch.xc, batch.yc, batch.xt)
 
-    if args.model not in ["neubanp"]:
-        mean, std = outs.loc, outs.scale
-    else:
-        mean, std = outs.mean, outs.std
-
+    mean = outs.mean
     # shape: (num_samples, 1, num_points, 1)
     if mean.dim() == 4:
         mean = mean.mean(dim=0)

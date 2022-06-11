@@ -1,26 +1,19 @@
 import os
 import os.path as osp
-
 import argparse
 import yaml
-
 import torch
-import torch.nn as nn
 import numpy as np
-
-import math
 import time
 import matplotlib.pyplot as plt
+import uncertainty_toolbox as uct
 from attrdict import AttrDict
 from tqdm import tqdm
 from copy import deepcopy
 
-import uncertainty_toolbox as uct
-
 from data.gp import *
-
-from utils.misc import load_module, logmeanexp, stack
-from utils.paths import results_path, datasets_path, evalsets_path
+from utils.misc import load_module
+from utils.paths import results_path, evalsets_path
 from utils.log import get_logger, RunningAverage
 
 def main():
@@ -30,7 +23,6 @@ def main():
     parser.add_argument('--mode', default='train')
     parser.add_argument('--expid', type=str, default='default')
     parser.add_argument('--resume', type=str, default=None)
-    parser.add_argument('--gpu', type=int, default=0)  # default(-1): device="cpu"
 
     # Data
     parser.add_argument('--max_num_points', type=int, default=50)
@@ -39,6 +31,7 @@ def main():
     parser.add_argument('--model', type=str, default="tnpd")
 
     # Train
+    parser.add_argument('--pretrain', action='store_true', default=False)
     parser.add_argument('--train_seed', type=int, default=0)
     parser.add_argument('--train_batch_size', type=int, default=16)
     parser.add_argument('--train_num_samples', type=int, default=4)
@@ -71,7 +64,6 @@ def main():
     parser.add_argument('--t_noise', type=float, default=None)
 
     args = parser.parse_args()
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
     if args.expid is not None:
         args.root = osp.join(results_path, 'gp', args.model, args.expid)
@@ -81,6 +73,9 @@ def main():
     model_cls = getattr(load_module(f'models/{args.model}.py'), args.model.upper())
     with open(f'configs/gp/{args.model}.yaml', 'r') as f:
         config = yaml.safe_load(f)
+    if args.pretrain:
+        assert args.model == 'tnpa'
+        config['pretrain'] = args.pretrain
 
     if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp", "tnpd", "tnpa", "tnpnd"]:
         model = model_cls(**config)
@@ -139,7 +134,6 @@ def train(args, model):
 
     if not args.resume:
         logger.info(f"Experiment: {args.model}-{args.expid}")
-        logger.info(f"Device: {args.gpu}\n")
         logger.info(f'Total number of parameters: {sum(p.numel() for p in model.parameters())}\n')
 
     for step in range(start_step, args.num_steps+1):
@@ -523,13 +517,7 @@ def eval_all_metrics_multiple_runs(args, model):
 
 def plot(args, model):
     seed = args.plot_seed
-    device_tmp = torch.device("cpu")
-    num_bs = args.plot_num_bs
     num_smp = args.plot_num_samples
-    loss=args.loss
-    alpha = args.alpha
-    beta = args.beta
-    eps = args.eps
 
     if args.mode == "plot":
         ckpt = torch.load(os.path.join(args.root, 'ckpt.tar'), map_location='cuda')
@@ -577,11 +565,10 @@ def plot(args, model):
     if args.plot_batch_size > 1:
         nrows = max(args.plot_batch_size//4, 1)
         ncols = min(4, args.plot_batch_size)
-        fig, axes = plt.subplots(nrows, ncols,
+        _, axes = plt.subplots(nrows, ncols,
                 figsize=(5*ncols, 5*nrows))
         axes = axes.flatten()
     else:
-        fig = plt.figure(figsize=(5, 5))
         axes = [plt.gca()]
 
     # multi sample

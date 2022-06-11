@@ -7,4 +7,5 @@ nhead: 4
 dropout: 0.0
 num_layers: 6
 permute: True
-emnist: True
+bound_std: True
+pretrain: False

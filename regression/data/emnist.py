@@ -1,10 +1,7 @@
-import argparse
-
 import torch
 import torchvision.datasets as tvds
 
 from utils.paths import datasets_path
-from utils.misc import gen_load_func
 
 class EMNIST(tvds.EMNIST):
     def __init__(self, train=True, class_range=[0, 47], device='cpu', download=True):

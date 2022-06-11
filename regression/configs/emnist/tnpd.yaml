@@ -6,4 +6,4 @@ dim_feedforward: 128
 nhead: 4
 dropout: 0.0
 num_layers: 6
-emnist: True
+bound_std: True

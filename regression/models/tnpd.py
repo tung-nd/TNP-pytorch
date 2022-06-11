@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 from torch.distributions.normal import Normal
 from attrdict import AttrDict
 
@@ -19,7 +18,7 @@ class TNPD(TNP):
         nhead,
         dropout,
         num_layers,
-        emnist=False
+        bound_std=False
     ):
         super(TNPD, self).__init__(
             dim_x,
@@ -30,7 +29,7 @@ class TNPD(TNP):
             nhead,
             dropout,
             num_layers,
-            emnist
+            bound_std
         )
         
         self.predictor = nn.Sequential(
@@ -43,7 +42,7 @@ class TNPD(TNP):
         z_target = self.encode(batch, autoreg=False)
         out = self.predictor(z_target)
         mean, std = torch.chunk(out, 2, dim=-1)
-        if self.emnist:
+        if self.bound_std:
             std = 0.05 + 0.95 * F.softplus(std)
         else:
             std = torch.exp(std)
@@ -69,7 +68,7 @@ class TNPD(TNP):
         z_target = self.encode(batch, autoreg=False)
         out = self.predictor(z_target)
         mean, std = torch.chunk(out, 2, dim=-1)
-        if self.emnist:
+        if self.bound_std:
             std = 0.05 + 0.95 * F.softplus(std)
         else:
             std = torch.exp(std)
