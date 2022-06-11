@@ -57,17 +57,17 @@ class TNP(nn.Module):
 
     def construct_input_pretrain(self, batch):
         if self.training and self.bound_std:
-            yt_noise = batch.yt + 0.05 * torch.randn_like(batch.yt) # add noise to the past to smooth the model
-            x_y_tar = torch.cat((batch.xt, yt_noise), dim=-1)
+            y_noise = batch.y + 0.05 * torch.randn_like(batch.y) # add noise to the past to smooth the model
+            x_y = torch.cat((batch.x, y_noise), dim=-1)
         else:
-            x_y_tar = torch.cat((batch.xt, batch.yt), dim=-1)
+            x_y= torch.cat((batch.x, batch.y), dim=-1)
 
-        x_0_tar = torch.cat((batch.xt, torch.zeros_like(batch.yt)), dim=-1)[:, 1:]
-        inp = torch.cat((x_y_tar, x_0_tar), dim=1)
+        x_0 = torch.cat((batch.x, torch.zeros_like(batch.y)), dim=-1)[:, 1:]
+        inp = torch.cat((x_y, x_0), dim=1)
         return inp
 
     def create_mask_pretrain(self, batch):
-        num_points = batch.xt.shape[1]
+        num_points = batch.x.shape[1]
 
         mask = torch.zeros((2*num_points-1, 2*num_points-1), device='cuda').fill_(float('-inf'))
         mask[:num_points, :num_points].triu_(diagonal=1)

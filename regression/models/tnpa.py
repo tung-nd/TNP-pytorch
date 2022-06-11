@@ -44,19 +44,6 @@ class TNPA(TNP):
         self.permute = permute
         self.pretrain = pretrain
 
-    def get_pretrain_data(self, batch):
-        device = batch.xc.device
-        b = batch.xc.shape[0]
-        dim_x, dim_y = batch.xc.shape[-1], batch.yc.shape[-1]
-
-        new_batch = AttrDict()
-        new_batch.xc = torch.zeros((b, 0, dim_x), device=device)
-        new_batch.yc = torch.zeros((b, 0, dim_y), device=device)
-        new_batch.xt = torch.cat((batch.xc, batch.xt), dim=1)
-        new_batch.yt = torch.cat((batch.yc, batch.yt), dim=1)
-
-        return new_batch
-
     def forward(self, batch, reduce_ll=True):
         if self.training and self.pretrain:
             return self.forward_pretrain(batch)
@@ -80,7 +67,6 @@ class TNPA(TNP):
         return outs
 
     def forward_pretrain(self, batch):
-        batch = self.get_pretrain_data(batch)
         z_target = self.encode(batch, autoreg=True, pretrain=True)
         out = self.predictor(z_target)
         mean, std = torch.chunk(out, 2, dim=-1)
@@ -92,7 +78,7 @@ class TNPA(TNP):
         pred_tar = Normal(mean, std)
 
         outs = AttrDict()
-        outs.tar_ll = pred_tar.log_prob(batch.yt[:, 1:]).sum(-1).mean()
+        outs.tar_ll = pred_tar.log_prob(batch.y[:, 1:]).sum(-1).mean()
         outs.loss = - (outs.tar_ll)
 
         return outs
