@@ -324,7 +324,7 @@ def eval_multiple_runs(args, model):
         line += '\n'
 
     line += f'mean and std of nll of {num_runs} runs:\n'
-    line += f'{np.mean(all_nll)} +- {np.std(all_nll)}'
+    line += f'{np.mean(tar_ll_all)} +- {np.std(tar_ll_all)}'
 
     filename = f'eval_{c1}-{c2}_{num_runs}runs'
     if args.t_noise is not None:

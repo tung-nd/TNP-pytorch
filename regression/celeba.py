@@ -79,7 +79,7 @@ def main():
     if args.pretrain:
         assert args.model == 'tnpa'
         config['pretrain'] = args.pretrain
-        
+
     if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp", "tnpd", "tnpa", "tnpnd"]:
         model = model_cls(**config)
     model.cuda()
@@ -314,7 +314,7 @@ def eval_multiple_runs(args, model):
         line += '\n'
 
     line += f'mean and std of nll of {num_runs} runs:\n'
-    line += f'{np.mean(all_nll)} +- {np.std(all_nll)}'
+    line += f'{np.mean(tar_ll_all)} +- {np.std(tar_ll_all)}'
 
     filename = f'eval_{num_runs}runs'
     if args.t_noise is not None:
