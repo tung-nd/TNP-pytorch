@@ -5,11 +5,9 @@ def get_args():
     parser = argparse.ArgumentParser()
 
     # Experiment
-    parser.add_argument('--task', type=str, default='cmab')
-    parser.add_argument('--mode', choices=["train", "eval", "plot", "plotvs", "plotvs2"], default='train')
     parser.add_argument('--expid', type=str, default=None)
     parser.add_argument('--resume', type=str, default=None)
-    parser.add_argument('--gpu', type=int, default='0') # default(-1): device="cpu"
+    parser.add_argument('--device', type=str, default='cuda') # 'cpu' to use cpu
 
     # wheel
     parser.add_argument("--cmab_data", choices=["wheel"], default="wheel")
@@ -31,23 +29,13 @@ def get_args():
     # Model
     parser.add_argument('--model', type=str, default="tnpa")
 
-    parser.add_argument('--yenc', action="store_true", default=True)
-    parser.add_argument('--wenc', action="store_true", default=True)
-    parser.add_argument('--wagg', action="store_true", default=True)
-    parser.add_argument('--wloss', action="store_true", default=True)
-    parser.add_argument('--loss', type=str, default="nll", choices=["nll", "l2", "betanll"])
+    # Training
+    parser.add_argument('--pretrain', action='store_true', default=False)
     parser.add_argument('--lr', type=float, default=5e-4)
     parser.add_argument('--num_epochs', type=int, default=100000)
     parser.add_argument('--print_freq', type=int, default=200)
     parser.add_argument('--eval_freq', type=int, default=5000)
     parser.add_argument('--save_freq', type=int, default=1000)
-    parser.add_argument('--alpha', type=float, default=0.5)
-    parser.add_argument('--beta', type=float, default=0.5)
-    parser.add_argument('--eps', type=float, default=1e-3)
-
-    # OOD settings
-    parser.add_argument('--eval_kernel', type=str, default='rbf')
-    parser.add_argument('--t_noise', type=float, default=None)
 
     args = parser.parse_args()
 

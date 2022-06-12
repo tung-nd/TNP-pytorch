@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from attrdict import AttrDict
 from tqdm import tqdm
 
-from data.wheel import sample_wheel_data, WheelBanditSampler, WheelBanditDataset
+from data.wheel import sample_wheel_data, WheelBanditSampler
 from utils.misc import load_module
 from utils.log import get_logger, RunningAverage, plot_log
 from runner import evalsets_path, results_path, datasets_path
@@ -25,6 +25,9 @@ def cmab(args):
         model_cls = getattr(load_module(f'models/{name}.py'), name.upper())  # ex. from models.cnp import CNP
         with open(osp.join("configs", f"{args.cmab_data}", f"{name}.yaml")) as g:
             config = yaml.safe_load(g)
+        if args.pretrain:
+            assert args.model == 'tnpa'
+            config['pretrain'] = args.pretrain
         model = model_cls(**config).to(device)
         model.train()
         path, filename = get_train_path(args)
@@ -174,7 +177,7 @@ def get_train_path(args):
 
 def get_eval_path(args):
     _, folder = get_trainset_path(args)
-    path = osp.join(results_path, args.cmab_data, f"eval-dummy-{args.cmab_train_reward}-R", args.model, folder, args.expconfig)
+    path = osp.join(results_path, args.cmab_data, f"eval-{args.cmab_train_reward}-R", args.model, folder, args.expconfig)
     if not osp.exists(path):
         os.makedirs(path, exist_ok=True)
     filename = f"S{args.cmab_eval_seed}-C{args.cmab_eval_num_contexts}-d{args.cmab_wheel_delta}"
@@ -182,7 +185,7 @@ def get_eval_path(args):
 
 
 def get_plot_path(args):
-    path = osp.join(results_path, args.cmab_data, f"plot-dummy-{args.cmab_train_reward}-R", args.expid)
+    path = osp.join(results_path, args.cmab_data, f"plot-{args.cmab_train_reward}-R", args.expid)
     if not osp.exists(path):
         os.makedirs(path, exist_ok=True)
     filename = f"S{args.cmab_plot_seed_start}-{args.cmab_plot_seed_end}-C{args.cmab_eval_num_contexts}-d{args.cmab_wheel_delta}-{args.cmab_eval_method}"
@@ -196,7 +199,6 @@ def train(args, model):
     dataset = get_bandit_dataset(args)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=int(args.num_epochs / args.cmab_train_update_freq))
-    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.num_epochs, gamma=1.0)
     device = args.device
 
     if args.resume:
@@ -208,7 +210,7 @@ def train(args, model):
         start_step = ckpt.step
     else:
         args.start_time = time.strftime("%Y%m%d-%H%M")
-        logfilename = os.path.join(args.root, f'train_{args.start_time}.log')  # log 파일 이름은 학습 시작 시간
+        logfilename = os.path.join(args.root, f'train_{args.start_time}.log')
         start_step = 1
     if os.path.exists(logfilename):
         if not args.resume:
@@ -282,7 +284,7 @@ def eval(args, models):
 
     t_init = time.time()
     _results = run_contextual_bandit(context_dim, num_actions, dataset, models, args.cmab_num_bs, args.device)
-    h_actions, h_rewards = _results  # entire action/reward, model별 action/reward
+    h_actions, h_rewards = _results
 
     path, filename = get_eval_path(args)
     _, folder = get_trainset_path(args)
