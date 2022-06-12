@@ -5,6 +5,7 @@ import torch
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+import argparse
 import seaborn as sns
 sns.set()
 
@@ -13,12 +14,72 @@ from bayeso import acquisition, covariance
 from bayeso.gp import gp_kernel as gp
 from bayeso.utils.utils_gp import get_prior_mu
 from tqdm import tqdm
-from copy import deepcopy
-import argparse
 
 from data.gp import *
 from utils.misc import load_module
 from utils.paths import results_path
+
+
+def main():
+    parser = argparse.ArgumentParser()
+
+    # Experiment
+    parser.add_argument('--expid', type=str, default=None)
+
+    # Bayesian Optimization
+    parser.add_argument('--bo_mode', choices=['oracle', 'models', 'plot', 'plot_bs', 'plot_v3'], default='models')
+    parser.add_argument('--bo_seed', type=int, default=1)
+    parser.add_argument('--num_bs', type=int, default=10)
+    parser.add_argument('--num_samples', type=int, default=10)
+    parser.add_argument('--bo_num_bs', type=int, default=200)
+    parser.add_argument('--bo_num_samples', type=int, default=200)
+    parser.add_argument('--bo_num_init', type=int, default=1)
+    parser.add_argument('--bo_kernel', type=str, default='rbf')
+    parser.add_argument('--str_cov', choices=['matern52', 'se'], default='se')
+    parser.add_argument('--bo_plot_verbose', action="store_true", default=False)
+    parser.add_argument('--plot_mode', choices=['train-bs', 'bo-bs'], default='train-bs')
+
+    # Model
+    parser.add_argument('--model', type=str, default="tnpa")
+
+    parser.add_argument('--t_noise', type=float, default=None)
+
+    args = parser.parse_args()
+
+    # args.str_cov = 'se'
+    args.num_task = 100
+    args.num_iter = 100
+
+    model = None
+    if args.bo_mode == 'models':
+        if args.model == '':
+            raise ValueError(f"Must specify your model for mode: {args.bo_mode}")
+
+        model_cls = getattr(load_module(f'models/{args.model}.py'), args.model.upper())
+        with open(f'configs/gp/{args.model}.yaml', 'r') as f:
+            config = yaml.safe_load(f)
+        if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp", "tnpa", "tnpd", "tnpnd"]:
+            model = model_cls(**config)
+        model.cuda()
+
+    if 'plot' in args.bo_mode:
+        args.root = osp.join(results_path, f'bayesopt_{args.bo_kernel}')
+    else:
+        args.expid = args.expid if args.expid is not None else ''
+        args.root = osp.join(results_path, f'bayesopt_{args.bo_kernel}', args.model, args.expid)
+
+    if not osp.isdir(args.root):
+        os.makedirs(args.root)
+
+    if args.bo_mode == 'oracle':
+        oracle(args)
+    elif args.bo_mode == 'models':
+        models(args, model)
+    elif args.bo_mode == 'plot':
+        plot(args)
+    else:
+        raise NotImplementedError
+
 
 class PlotIteration(object):
     def __init__(self, args, task_num, x, y, seed):
@@ -74,69 +135,6 @@ def get_file(path, str_kernel, str_model, noise, seed=None):
         str_all += '.npy'
 
     return osp.join(path, str_all)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-
-    # Experiment
-    parser.add_argument('--expid', type=str, default=None)
-    parser.add_argument('--gpu', type=int, default=0)  # default(-1): device="cpu"
-
-    # Bayesian Optimization
-    parser.add_argument('--bo_mode', choices=['oracle', 'models', 'plot', 'plot_bs', 'plot_v3'], default='models')
-    parser.add_argument('--bo_seed', type=int, default=1)
-    parser.add_argument('--num_bs', type=int, default=10)
-    parser.add_argument('--num_samples', type=int, default=10)
-    parser.add_argument('--bo_num_bs', type=int, default=200)
-    parser.add_argument('--bo_num_samples', type=int, default=200)
-    parser.add_argument('--bo_num_init', type=int, default=1)
-    parser.add_argument('--bo_kernel', type=str, default='rbf')
-    parser.add_argument('--str_cov', choices=['matern52', 'se'], default='se')
-    parser.add_argument('--bo_plot_verbose', action="store_true", default=False)
-    parser.add_argument('--plot_mode', choices=['train-bs', 'bo-bs'], default='train-bs')
-
-    # Model
-    parser.add_argument('--model', type=str, default="tnpa")
-
-    parser.add_argument('--t_noise', type=float, default=None)
-
-    args = parser.parse_args()
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-
-    # args.str_cov = 'se'
-    args.num_task = 100
-    args.num_iter = 100
-
-    model = None
-    if args.bo_mode == 'models':
-        if args.model == '':
-            raise ValueError(f"Must specify your model for mode: {args.bo_mode}")
-
-        model_cls = getattr(load_module(f'models/{args.model}.py'), args.model.upper())
-        with open(f'configs/gp/{args.model}.yaml', 'r') as f:
-            config = yaml.safe_load(f)
-        if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp", "tnpa", "tnpd", "tnpnd"]:
-            model = model_cls(**config)
-        model.cuda()
-
-    if 'plot' in args.bo_mode:
-        args.root = osp.join(results_path, f'bayesopt_{args.bo_kernel}')
-    else:
-        args.expid = args.expid if args.expid is not None else ''
-        args.root = osp.join(results_path, f'bayesopt_{args.bo_kernel}', args.model, args.expid)
-
-    if not osp.isdir(args.root):
-        os.makedirs(args.root)
-
-    if args.bo_mode == 'oracle':
-        oracle(args)
-    elif args.bo_mode == 'models':
-        models(args, model)
-    elif args.bo_mode == 'plot':
-        plot(args)
-    else:
-        raise NotImplementedError
 
 
 def oracle(args):

@@ -3,17 +3,14 @@ import os.path as osp
 import yaml
 import torch
 import time
-import matplotlib.pyplot as plt
-
+import argparse
 from attrdict import AttrDict
 from tqdm import tqdm
-from copy import deepcopy
-import argparse
 
 from data.gp import *
-from utils.misc import load_module, logmeanexp
-from utils.log import get_logger, RunningAverage, plot_log
-from utils.paths import results_path, datasets_path, evalsets_path
+from utils.misc import load_module
+from utils.log import get_logger, RunningAverage
+from utils.paths import results_path, evalsets_path
 
 
 def main():
@@ -23,7 +20,6 @@ def main():
     parser.add_argument('--mode', default='train')
     parser.add_argument('--expid', type=str, default=None)
     parser.add_argument('--resume', type=str, default=None)
-    parser.add_argument('--gpu', type=int, default=0)  # default(-1): device="cpu"
 
     # Data
     parser.add_argument('--max_num_points', type=int, default=50)
@@ -32,6 +28,7 @@ def main():
     parser.add_argument('--model', type=str, default="tnpa")
 
     # Train
+    parser.add_argument('--pretrain', action='store_true', default=False)
     parser.add_argument('--train_seed', type=int, default=0)
     parser.add_argument('--train_batch_size', type=int, default=16)
     parser.add_argument('--train_num_samples', type=int, default=4)
@@ -50,21 +47,11 @@ def main():
     parser.add_argument('--eval_num_samples', type=int, default=50)
     parser.add_argument('--eval_logfile', type=str, default=None)
 
-    # Plot
-    parser.add_argument('--plot_seed', type=int, default=0)
-    parser.add_argument('--plot_batch_size', type=int, default=16)
-    parser.add_argument('--plot_num_samples', type=int, default=30)
-    parser.add_argument('--plot_num_bs', type=int, default=50)
-    parser.add_argument('--plot_num_ctx', type=int, default=30)
-    parser.add_argument('--plot_num_tar', type=int, default=10)
-    parser.add_argument('--start_time', type=str, default=None)
-
     # OOD settings
     parser.add_argument('--eval_kernel', type=str, default='rbf')
     parser.add_argument('--t_noise', type=float, default=None)
 
     args = parser.parse_args()
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
     if args.expid is not None:
         args.root = osp.join(results_path, 'gp', args.model, args.expid)
@@ -74,6 +61,9 @@ def main():
     model_cls = getattr(load_module(f'models/{args.model}.py'), args.model.upper())
     with open(f'configs/gp/{args.model}.yaml', 'r') as f:
         config = yaml.safe_load(f)
+    if args.pretrain:
+        assert args.model == 'tnpa'
+        config['pretrain'] = args.pretrain
 
     if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp", "tnpa", "tnpd", "tnpnd"]:
         model = model_cls(**config)
@@ -126,7 +116,6 @@ def train(args, model):
 
     if not args.resume:
         logger.info(f"Experiment: {args.model}-{args.expid}")
-        logger.info(f"Device: {args.gpu}\n")
         logger.info(f'Total number of parameters: {sum(p.numel() for p in model.parameters())}\n')
 
     for step in range(start_step, args.num_epochs+1):

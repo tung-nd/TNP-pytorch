@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
 from torch.distributions.normal import Normal
 from attrdict import AttrDict
 
@@ -20,6 +18,7 @@ class TNPA(TNP):
         nhead,
         dropout,
         num_layers,
+        pretrain
     ):
         super(TNPA, self).__init__(
             dim_x,
@@ -38,8 +37,11 @@ class TNPA(TNP):
             nn.Linear(dim_feedforward, dim_y*2)
         )
 
+        self.pretrain = pretrain
+
     def forward(self, batch, reduce_ll=True):
-        num_ctx, num_all = batch.xc.shape[1], batch.x.shape[1]
+        if self.training and self.pretrain:
+            return self.forward_pretrain(batch)
 
         out_encoder = self.encode(batch, autoreg=True)
         out = self.predictor(out_encoder)
@@ -53,6 +55,19 @@ class TNPA(TNP):
         outs.loss = loss
         return outs
 
+    def forward_pretrain(self, batch):
+        out_encoder = self.encode(batch, autoreg=True, pretrain=True)
+        out = self.predictor(out_encoder)
+        mean, std = torch.chunk(out, 2, dim=-1)
+        std = torch.exp(std)
+
+        pred_dist = Normal(mean, std)
+        loss = - pred_dist.log_prob(batch.y[:, 1:]).sum(-1).mean()
+        
+        outs = AttrDict()
+        outs.loss = loss
+        return outs 
+
     def predict(self, xc, yc, xt, num_samples=None):
         if xc.shape[-3] != xt.shape[-3]:
             xt = xt.transpose(-3, -2)
@@ -62,8 +77,6 @@ class TNPA(TNP):
         batch.yc = yc
         batch.xt = xt
         batch.yt = torch.zeros((xt.shape[0], xt.shape[1], yc.shape[2]), device='cuda')
-
-        num_context = xc.shape[1]
 
         # in evaluation tnpa = tnpd because we only have 1 target point to predict
         out_encoder = self.encode(batch, autoreg=False)

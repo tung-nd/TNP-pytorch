@@ -47,13 +47,34 @@ class TNP(nn.Module):
         else:
             mask = torch.zeros((num_all+num_tar, num_all+num_tar), device='cuda').fill_(float('-inf'))
             mask[:, :num_ctx] = 0.0 # all points attend to context points
+            mask[num_ctx:num_all, num_ctx:num_all].triu_(diagonal=1) # each real target point attends to itself and precedding real target points
             mask[num_all:, num_ctx:num_all].triu_(diagonal=0) # each fake target point attends to preceeding real target points
 
         return mask, num_tar
 
-    def encode(self, batch, autoreg=False):
-        inp = self.construct_input(batch, autoreg)
-        mask, num_tar = self.create_mask(batch, autoreg)
+    def construct_input_pretrain(self, batch):
+        x_y = torch.cat((batch.x, batch.y), dim=-1)
+        x_0 = torch.cat((batch.x, torch.zeros_like(batch.y)), dim=-1)[:, 1:]
+        inp = torch.cat((x_y, x_0), dim=1)
+        return inp
+
+    def create_mask_pretrain(self, batch):
+        num_points = batch.x.shape[1]
+
+        mask = torch.zeros((2*num_points-1, 2*num_points-1), device='cuda').fill_(float('-inf'))
+        mask[:num_points, :num_points].triu_(diagonal=1)
+        mask[num_points:, 1:num_points].triu_(diagonal=0)
+        mask[num_points:, 0] = 0.0
+
+        return mask, num_points-1
+
+    def encode(self, batch, autoreg=False, pretrain=False):
+        if not pretrain:
+            inp = self.construct_input(batch, autoreg)
+            mask, num_tar = self.create_mask(batch, autoreg)
+        else:
+            inp = self.construct_input_pretrain(batch)
+            mask, num_tar = self.create_mask_pretrain(batch)
         embeddings = self.embedder(inp)
         out = self.encoder(embeddings, mask=mask)
         return out[:, -num_tar:]

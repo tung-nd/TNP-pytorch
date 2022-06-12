@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
 from torch.distributions.normal import Normal
 from attrdict import AttrDict
 
@@ -59,8 +57,6 @@ class TNPD(TNP):
         batch.yc = yc
         batch.xt = xt
         batch.yt = torch.zeros((xt.shape[0], xt.shape[1], yc.shape[2]), device='cuda')
-
-        num_context = xc.shape[1]
 
         out_encoder = self.encode(batch, autoreg=False)
         out = self.predictor(out_encoder)

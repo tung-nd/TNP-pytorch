@@ -1,10 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
 from torch.distributions.normal import Normal
 from attrdict import AttrDict
-import math
 
 from models.modules import build_mlp
 from models.tnp import TNP
@@ -78,7 +75,6 @@ class TNPND(TNP):
     def forward(self, batch, reduce_ll=True):
         batch_size = batch.x.shape[0]
         dim_y = batch.y.shape[-1]
-        num_context = batch.xc.shape[1]
         num_target = batch.xt.shape[1]
 
         out_encoder = self.encode(batch, autoreg=False)
@@ -102,7 +98,6 @@ class TNPND(TNP):
 
         batch_size = xc.shape[0]
         dim_y = yc.shape[-1]
-        num_context = batch.xc.shape[1]
         num_target = batch.xt.shape[1]
 
         out_encoder = self.encode(batch, autoreg=False)

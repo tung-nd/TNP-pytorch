@@ -6,9 +6,15 @@ import time
 import torch
 import tqdm
 import yaml
-
 from argparse import ArgumentParser
 from attrdict import AttrDict
+from botorch.acquisition import UpperConfidenceBound, ExpectedImprovement
+from botorch.fit import fit_gpytorch_model
+from botorch.models import SingleTaskGP
+from botorch.optim import optimize_acqf
+from botorch.optim.fit import fit_gpytorch_torch
+from gpytorch.mlls import ExactMarginalLogLikelihood
+
 from bayeso_benchmarks.inf_dim_ackley import Ackley
 from bayeso_benchmarks.inf_dim_cosines import Cosines
 from bayeso_benchmarks.inf_dim_rastrigin import Rastrigin
@@ -16,19 +22,11 @@ from bayeso_benchmarks.two_dim_dropwave import DropWave
 from bayeso_benchmarks.two_dim_goldsteinprice import GoldsteinPrice
 from bayeso_benchmarks.two_dim_michalewicz import TranslatedMichalewicz
 from bayeso_benchmarks.three_dim_hartmann3d import Hartmann3D
-from botorch.acquisition import UpperConfidenceBound, ExpectedImprovement
-from botorch.fit import fit_gpytorch_model
-from botorch.models import SingleTaskGP
-from botorch.optim import optimize_acqf
-from botorch.optim.fit import fit_gpytorch_torch, fit_gpytorch_scipy
-from gpytorch.mlls import ExactMarginalLogLikelihood
-from torch import Tensor
-from torch.nn import Module
 
 from utils.acquisition import UCB, EI
 from utils.misc import load_module
 
-from utils.paths import results_path, evalsets_path, datasets_path
+from utils.paths import results_path
 
 def gp(
         obj_func: str,
@@ -398,7 +396,6 @@ def plot_for_paper(
 if __name__ == '__main__':
     parser = ArgumentParser()
 
-    parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--mode', choices=['bo', 'plot', 'plot_paper'], default='bo')
     parser.add_argument('--time_comparison', action='store_true', default=False)
 
@@ -431,10 +428,6 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1)
 
     args = parser.parse_args()
-    if args.gpu < 0:
-        args.loc = 'local'
-    else:
-        os.environ['CUDA_VISIBLE_DEVICES'] = f"{args.gpu}"
 
     if args.mode == 'bo':
         if args.model == 'gp':

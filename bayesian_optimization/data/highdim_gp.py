@@ -1,6 +1,5 @@
 import gpytorch
 import matplotlib.pyplot as plt
-import numpy as np
 import seaborn as sns
 import torch
 import warnings
@@ -13,7 +12,6 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.models import ExactGP
 from gpytorch.priors import UniformPrior
-from mpl_toolkits import mplot3d
 from typing import Union, List, Tuple
 
 
