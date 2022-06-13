@@ -87,10 +87,6 @@ def main():
         eval(args, model)
     elif args.mode == 'eval_all_metrics':
         eval_all_metrics(args, model)
-    elif args.mode == 'eval_multiple_runs':
-        eval_multiple_runs(args, model)
-    elif args.mode == 'eval_all_metrics_multiple_runs':
-        eval_all_metrics_multiple_runs(args, model)
     elif args.mode == 'plot':
         plot(args, model)
 
@@ -217,6 +213,7 @@ def gen_evalset(args):
     torch.save(batches, osp.join(path, filename))
 
 def eval(args, model):
+    # eval a trained model on log-likelihood
     if args.mode == 'eval':
         ckpt = torch.load(os.path.join(args.root, 'ckpt.tar'), map_location='cuda')
         model.load_state_dict(ckpt.model)
@@ -269,61 +266,9 @@ def eval(args, model):
 
     return line
 
-def eval_multiple_runs(args, model):
-    num_runs = 5
-
-    path, filename = get_eval_path(args)
-    if not osp.isfile(osp.join(path, filename)):
-        print('generating evaluation sets...')
-        gen_evalset(args)
-
-    eval_batches = torch.load(osp.join(path, filename))
-
-    torch.manual_seed(args.eval_seed)
-    torch.cuda.manual_seed(args.eval_seed)
-
-    ravgs = [RunningAverage() for _ in range(num_runs)]
-    with torch.no_grad():
-        for i in range(num_runs):
-            model_ = deepcopy(model)
-            ckpt = torch.load(osp.join(results_path, 'gp', args.model, f'run{i+1}', 'ckpt.tar'), map_location='cuda')
-            model_.load_state_dict(ckpt['model'])
-            model_.eval()
-            print ('Evaluating run %d' % (i+1))
-            for batch in tqdm(eval_batches, ascii=True):
-                for key, val in batch.items():
-                    batch[key] = val.cuda()
-                
-                if args.model in ["np", "anp", "bnp", "banp"]:
-                    outs = model_(batch, args.eval_num_samples)
-                else:
-                    outs = model_(batch)
-
-                for key, val in outs.items():
-                    ravgs[i].update(key, val)
-        
-        tar_ll_all = [ragv.sum['tar_ll'] / ragv.cnt['tar_ll'] for ragv in ravgs]
-    
-    line = f'{args.model}: {args.eval_kernel} '
-    if args.t_noise is not None:
-        line += f'tn {args.t_noise} '
-    line += f'\n'
-    for i in range(num_runs):
-        line += f'run {i+1}: tar_ll {tar_ll_all[i]}'
-        line += '\n'
-    line += f'average: {np.mean(tar_ll_all)}\n'
-    line += f'std: {np.std(tar_ll_all)}'
-
-    filename = f'eval_{args.eval_kernel}'
-    if args.t_noise is not None:
-        filename += f'_{args.t_noise}'
-    filename += f'_{num_runs}runs'
-    filename += '.log'
-    logger = get_logger(osp.join(results_path, 'gp', args.model, filename), mode='w')
-
-    logger.info(line)
 
 def eval_all_metrics(args, model):
+    # eval a trained model on log-likelihood, rsme, calibration, and sharpness
     ckpt = torch.load(os.path.join(args.root, 'ckpt.tar'), map_location='cuda')
     model.load_state_dict(ckpt.model)
     if args.eval_logfile is None:
@@ -410,110 +355,6 @@ def eval_all_metrics(args, model):
 
     return line
 
-def eval_all_metrics_multiple_runs(args, model):
-    num_runs = 5
-
-    path, filename = get_eval_path(args)
-    if not osp.isfile(osp.join(path, filename)):
-        print('generating evaluation sets...')
-        gen_evalset(args)
-
-    eval_batches = torch.load(osp.join(path, filename))
-
-    torch.manual_seed(args.eval_seed)
-    torch.cuda.manual_seed(args.eval_seed)
-
-    all_metrics = [{}, {}, {}, {}] # acc, calibration, sharpness, scoring_rule
-
-    with torch.no_grad():
-        for i in range(num_runs):
-            model_ = deepcopy(model)
-            ckpt = torch.load(osp.join(results_path, 'gp', args.model, f'run{i+1}', 'ckpt.tar'), map_location='cuda')
-            model_.load_state_dict(ckpt['model'])
-            model_.eval()
-
-            print ('Evaluating run %d' % (i+1))
-
-            ragvs = [RunningAverage() for _ in range(4)] # 4 types of metrics
-
-            for batch in tqdm(eval_batches, ascii=True):
-                for key, val in batch.items():
-                    batch[key] = val.cuda()
-
-                if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp"]:
-                    outs = model_.predict(batch.xc, batch.yc, batch.xt, num_samples=args.eval_num_samples)
-                    ll = model_(batch, num_samples=args.eval_num_samples)
-                elif args.model in ["tnpa", "tnpnd"]:
-                    outs = model_.predict(
-                        batch.xc, batch.yc, batch.xt,
-                        num_samples=args.eval_num_samples
-                    )
-                    ll = model_(batch)
-                else:
-                    outs = model_.predict(batch.xc, batch.yc, batch.xt)
-                    ll = model_(batch)
-
-                mean, std = outs.loc, outs.scale
-
-                # shape: (num_samples, 1, num_points, 1)
-                if mean.dim() == 4:
-                    var = std.pow(2).mean(dim=0) + mean.pow(2).mean(dim=0) - mean.mean(dim=0).pow(2)
-                    std = var.sqrt().squeeze(0)
-                    mean = mean.mean(dim=0).squeeze(0)
-                
-                mean, std = mean.squeeze().cpu().numpy().flatten(), std.squeeze().cpu().numpy().flatten()
-                yt = batch.yt.squeeze().cpu().numpy().flatten()
-
-                acc = uct.metrics.get_all_accuracy_metrics(mean, yt, verbose=False)
-                calibration = uct.metrics.get_all_average_calibration(mean, std, yt, num_bins=100, verbose=False)
-                sharpness = uct.metrics.get_all_sharpness_metrics(std, verbose=False)
-                scoring_rule = {'tar_ll': ll.tar_ll.item()}
-
-                batch_metrics = [acc, calibration, sharpness, scoring_rule]
-                for i in range(len(batch_metrics)):
-                    ragv, batch_metric = ragvs[i], batch_metrics[i]
-                    for k in batch_metric.keys():
-                        ragv.update(k, batch_metric[k])
-
-
-            for i, ragv in enumerate(ragvs):
-                for sub_metric in ragv.keys():
-                    if sub_metric not in all_metrics[i].keys():
-                        all_metrics[i][sub_metric] = [ragv.get(sub_metric)]
-                    else:
-                        all_metrics[i][sub_metric].append(ragv.get(sub_metric))
-            
-
-    line = f'{args.model}: {args.eval_kernel} '
-    if args.t_noise is not None:
-        line += f'tn {args.t_noise} '
-    line += f'\n'
-    line += f'all metrics of {num_runs} runs:\n'
-
-    for metric in all_metrics:
-        line += str(metric)
-        line += f'\n'
-
-    for metric in all_metrics:
-        for sub_metric in metric.keys():
-            mean = np.mean(metric[sub_metric])
-            std = np.std(metric[sub_metric])
-            metric[sub_metric] = '%f +- %f' % (mean, std)
-    
-    line += f'mean and std of all metrics of {num_runs} runs:\n'
-
-    for metric in all_metrics:
-        line += str(metric)
-        line += f'\n'
-
-    filename = f'eval_{args.eval_kernel}'
-    if args.t_noise is not None:
-        filename += f'_{args.t_noise}'
-    filename += f'_all_metrics_{num_runs}runs'
-    filename += '.log'
-    logger = get_logger(osp.join(results_path, 'gp', args.model, filename), mode='w')
-
-    logger.info(line)
 
 def plot(args, model):
     seed = args.plot_seed
