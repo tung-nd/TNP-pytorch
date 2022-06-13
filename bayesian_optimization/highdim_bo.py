@@ -28,6 +28,82 @@ from utils.misc import load_module
 
 from utils.paths import results_path
 
+def main():
+    parser = ArgumentParser()
+
+    parser.add_argument('--mode', choices=['bo', 'plot'], default='bo')
+    parser.add_argument('--time_comparison', action='store_true', default=False)
+
+    parser.add_argument('--objective',
+                        choices=['ackley',
+                                 'cosine',
+                                 'rastrigin',
+                                 'rosenbrock',
+                                 'shubert',
+                                 'xinsheyang',
+                                 'gramacyandlee',
+                                 'dropwave',
+                                 'goldsteinprice',
+                                 'michalewicz',
+                                 'hartmann'],
+                        default='ackley')
+    parser.add_argument('--dimension', type=int, default=2)
+    parser.add_argument('--acquisition', choices=['ucb', 'ei'], default='ucb')
+
+    parser.add_argument('--model', default='tnpa')
+    parser.add_argument('--train_num_bootstrap', type=int, default=10)
+    parser.add_argument('--train_num_steps', type=int, default=100000)
+    parser.add_argument('--train_max_num_points', type=int, default=128)
+    parser.add_argument('--train_min_num_points', type=int, default=30)
+
+    parser.add_argument('--num_task', type=int, default=100)
+    parser.add_argument('--num_iter', type=int, default=100)
+    parser.add_argument('--num_initial_design', type=int, default=1)
+    parser.add_argument('--num_bootstrap', type=int, default=200)
+    parser.add_argument('--seed', type=int, default=1)
+
+    args = parser.parse_args()
+
+    if args.mode == 'bo':
+        if args.model == 'gp':
+            gp(
+                obj_func=args.objective,
+                dim_problem=args.dimension,
+                result_path=results_path,
+                acq_func=args.acquisition,
+                num_task=args.num_task,
+                num_iter=args.num_iter,
+                num_initial_design=args.num_initial_design,
+                seed=args.seed
+            )
+        else:
+            bo(
+                obj_func=args.objective,
+                dim_problem=args.dimension,
+                result_path=results_path,
+                acq_func=args.acquisition,
+                model_name=args.model,
+                train_num_bootstrap=args.train_num_bootstrap,
+                train_num_step=args.train_num_steps,
+                train_max_num_points=args.train_max_num_points,
+                train_min_num_points=args.train_min_num_points,
+                num_task=args.num_task,
+                num_iter=args.num_iter,
+                num_initial_design=args.num_initial_design,
+                num_bootstrap=args.num_bootstrap,
+                seed=args.seed
+            )
+
+    elif args.mode == 'plot':
+        plot(
+            result_path=results_path,
+            num_iter=args.num_iter,
+            seed=args.seed
+        )
+
+    else:
+        raise NotImplementedError
+
 def gp(
         obj_func: str,
         dim_problem: int,
@@ -328,9 +404,8 @@ def bo(
     np.save(osp.join(root, f'results_{acq_func}_{seed}.npy'), exp_results)
 
 
-def plot_for_paper(
+def plot(
         result_path: str,
-        train_num_bootrap: int = 10,
         num_iter: int = 50,
         seed: int = 42
 ):
@@ -346,7 +421,7 @@ def plot_for_paper(
         'tnpnd': 'orange',
     }
     root = osp.join(result_path, 'highdim_bo')
-    models = ['NP', 'ANP', 'BNP', 'BANP', 'CNP', 'CANP', 'TNP-D', 'TNP-A', 'TNP-ND']
+    model_names = ['NP', 'ANP', 'BNP', 'BANP', 'CNP', 'CANP', 'TNP-D', 'TNP-A', 'TNP-ND']
     table = {2: {'function': ['Ackley', 'Dropwave', 'Michalewicz'], 'min': 30, 'max': 128, 'step': 100000},
              3: {'function': ['Ackley', 'Cosine', 'Rastrigin'], 'min': 64, 'max': 256, 'step': 100000}}
 
@@ -360,8 +435,7 @@ def plot_for_paper(
 
         times_mu = np.zeros((len(functions), num_iter + 1))
         times_std = np.zeros((len(functions), num_iter + 1))
-        for model in color.keys():
-            m = model.lower()
+        for k, m in enumerate(color.keys()):
             for j, function in enumerate(functions):
                 func = function.lower()
 
@@ -375,7 +449,7 @@ def plot_for_paper(
                 times_mu[j] = exp_results['times'].mean(0)
                 times_std[j] = exp_results['times'].std(0)
                 mean, std = regrets.mean(0), regrets.std(0) * 0.2
-                axes[i][j].plot(np.arange(num_iter + 1), mean, label=model, lw=2.1, color=color[m])
+                axes[i][j].plot(np.arange(num_iter + 1), mean, label=model_names[k], lw=2.1, color=color[m])
                 axes[i][j].fill_between(np.arange(num_iter + 1), mean - std, mean + std, alpha=0.1, color=color[m])
                 axes[i][j].set_title(f'{dim}D {function}', fontsize=20)
                 if i == 1:
@@ -386,7 +460,9 @@ def plot_for_paper(
     axes[0][0].set_ylabel('Regret', fontsize=20)
     axes[1][0].set_ylabel('Regret', fontsize=20)
     plt.subplots_adjust(bottom=0.12)
-    fig.legend(labels=models, loc="lower center", fancybox=True, shadow=True, ncol=11, fontsize=16, facecolor='white')
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    fig.legend(by_label.values(), by_label.keys(), loc="lower center", fancybox=True, shadow=True, ncol=11, fontsize=16, facecolor='white')
 
     figname = f'Multi-dimentional BO_{acq_func}.png'
     plt.savefig(osp.join(root, figname), dpi=500, bbox_inches='tight')
@@ -394,78 +470,4 @@ def plot_for_paper(
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
-
-    parser.add_argument('--mode', choices=['bo', 'plot', 'plot_paper'], default='bo')
-    parser.add_argument('--time_comparison', action='store_true', default=False)
-
-    parser.add_argument('--objective',
-                        choices=['ackley',
-                                 'cosine',
-                                 'rastrigin',
-                                 'rosenbrock',
-                                 'shubert',
-                                 'xinsheyang',
-                                 'gramacyandlee',
-                                 'dropwave',
-                                 'goldsteinprice',
-                                 'michalewicz',
-                                 'hartmann'],
-                        default='ackley')
-    parser.add_argument('--dimension', type=int, default=2)
-    parser.add_argument('--acquisition', choices=['ucb', 'ei'], default='ucb')
-
-    parser.add_argument('--model', default='tnpa')
-    parser.add_argument('--train_num_bootstrap', type=int, default=10)
-    parser.add_argument('--train_num_steps', type=int, default=100000)
-    parser.add_argument('--train_max_num_points', type=int, default=128)
-    parser.add_argument('--train_min_num_points', type=int, default=30)
-
-    parser.add_argument('--num_task', type=int, default=100)
-    parser.add_argument('--num_iter', type=int, default=100)
-    parser.add_argument('--num_initial_design', type=int, default=1)
-    parser.add_argument('--num_bootstrap', type=int, default=200)
-    parser.add_argument('--seed', type=int, default=1)
-
-    args = parser.parse_args()
-
-    if args.mode == 'bo':
-        if args.model == 'gp':
-            gp(
-                obj_func=args.objective,
-                dim_problem=args.dimension,
-                result_path=results_path,
-                acq_func=args.acquisition,
-                num_task=args.num_task,
-                num_iter=args.num_iter,
-                num_initial_design=args.num_initial_design,
-                seed=args.seed
-            )
-        else:
-            bo(
-                obj_func=args.objective,
-                dim_problem=args.dimension,
-                result_path=results_path,
-                acq_func=args.acquisition,
-                model_name=args.model,
-                train_num_bootstrap=args.train_num_bootstrap,
-                train_num_step=args.train_num_steps,
-                train_max_num_points=args.train_max_num_points,
-                train_min_num_points=args.train_min_num_points,
-                num_task=args.num_task,
-                num_iter=args.num_iter,
-                num_initial_design=args.num_initial_design,
-                num_bootstrap=args.num_bootstrap,
-                seed=args.seed
-            )
-
-    elif args.mode == 'plot_paper':
-        plot_for_paper(
-            result_path=results_path,
-            train_num_bootrap=args.train_num_bootstrap,
-            num_iter=args.num_iter,
-            seed=args.seed
-        )
-
-    else:
-        raise NotImplementedError
+    main()

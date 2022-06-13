@@ -381,8 +381,10 @@ def plot(args):
         
     axes[0].set_ylabel('Regret', fontsize=20)
     plt.subplots_adjust(bottom=0.24)
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
     fig.legend(
-        labels=[name for name in model_names],
+        by_label.values(), by_label.keys(),
         loc="lower center", fancybox=True, shadow=True, ncol=11, fontsize=16, facecolor='white'
     )
     save_dir = osp.join(results_path, 'gp_plot.png')
