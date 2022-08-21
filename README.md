@@ -25,9 +25,14 @@ Please check the directory of each task for specific usage.
 
 ## Citation
 
-If you find this useful in your research, please consider citing our paper:
+If you find this repo useful in your research, please consider citing our paper:
 ```
-TODO: add bibtex
+@article{nguyen2022transformer,
+  title={Transformer neural processes: Uncertainty-aware meta learning via sequence modeling},
+  author={Nguyen, Tung and Grover, Aditya},
+  journal={arXiv preprint arXiv:2207.04179},
+  year={2022}
+}
 ```
 
 ## Acknowledgement
