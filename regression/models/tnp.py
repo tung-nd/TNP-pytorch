@@ -55,34 +55,9 @@ class TNP(nn.Module):
 
         return mask, num_tar
 
-    def construct_input_pretrain(self, batch):
-        if self.training and self.bound_std:
-            y_noise = batch.y + 0.05 * torch.randn_like(batch.y) # add noise to the past to smooth the model
-            x_y = torch.cat((batch.x, y_noise), dim=-1)
-        else:
-            x_y= torch.cat((batch.x, batch.y), dim=-1)
-
-        x_0 = torch.cat((batch.x, torch.zeros_like(batch.y)), dim=-1)[:, 1:]
-        inp = torch.cat((x_y, x_0), dim=1)
-        return inp
-
-    def create_mask_pretrain(self, batch):
-        num_points = batch.x.shape[1]
-
-        mask = torch.zeros((2*num_points-1, 2*num_points-1), device='cuda').fill_(float('-inf'))
-        mask[:num_points, :num_points].triu_(diagonal=1)
-        mask[num_points:, 1:num_points].triu_(diagonal=0)
-        mask[num_points:, 0] = 0.0
-
-        return mask, num_points-1
-
-    def encode(self, batch, autoreg=False, pretrain=False):
-        if pretrain:
-            inp = self.construct_input_pretrain(batch)
-            mask, num_tar = self.create_mask_pretrain(batch)
-        else:
-            inp = self.construct_input(batch, autoreg)
-            mask, num_tar = self.create_mask(batch, autoreg)
+    def encode(self, batch, autoreg=False):
+        inp = self.construct_input(batch, autoreg)
+        mask, num_tar = self.create_mask(batch, autoreg)
         embeddings = self.embedder(inp)
         out = self.encoder(embeddings, mask=mask)
         return out[:, -num_tar:]

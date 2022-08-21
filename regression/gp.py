@@ -20,7 +20,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Experiment
-    parser.add_argument('--mode', default='train')
+    parser.add_argument('--mode', default='train', choices=['train', 'eval', 'eval_all_metrics', 'plot'])
     parser.add_argument('--expid', type=str, default='default')
     parser.add_argument('--resume', type=str, default=None)
 
@@ -31,7 +31,6 @@ def main():
     parser.add_argument('--model', type=str, default="tnpd")
 
     # Train
-    parser.add_argument('--pretrain', action='store_true', default=False)
     parser.add_argument('--train_seed', type=int, default=0)
     parser.add_argument('--train_batch_size', type=int, default=16)
     parser.add_argument('--train_num_samples', type=int, default=4)
@@ -45,7 +44,6 @@ def main():
     # Eval
     parser.add_argument('--eval_seed', type=int, default=0)
     parser.add_argument('--eval_num_batches', type=int, default=3000)
-    parser.add_argument('--eval_num_bs', type=int, default=50)
     parser.add_argument('--eval_batch_size', type=int, default=16)
     parser.add_argument('--eval_num_samples', type=int, default=50)
     parser.add_argument('--eval_logfile', type=str, default=None)
@@ -54,7 +52,6 @@ def main():
     parser.add_argument('--plot_seed', type=int, default=0)
     parser.add_argument('--plot_batch_size', type=int, default=16)
     parser.add_argument('--plot_num_samples', type=int, default=30)
-    parser.add_argument('--plot_num_bs', type=int, default=50)
     parser.add_argument('--plot_num_ctx', type=int, default=30)
     parser.add_argument('--plot_num_tar', type=int, default=10)
     parser.add_argument('--start_time', type=str, default=None)
@@ -73,9 +70,6 @@ def main():
     model_cls = getattr(load_module(f'models/{args.model}.py'), args.model.upper())
     with open(f'configs/gp/{args.model}.yaml', 'r') as f:
         config = yaml.safe_load(f)
-    if args.pretrain:
-        assert args.model == 'tnpa'
-        config['pretrain'] = args.pretrain
 
     if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp", "tnpd", "tnpa", "tnpnd"]:
         model = model_cls(**config)
