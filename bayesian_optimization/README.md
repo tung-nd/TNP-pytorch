@@ -1,57 +1,33 @@
-## To run Bayesian Optimization experiment
-
+### 1-dimensional BO
 ---
--  Prepare `paths.yaml` in workspace.
-   This includes the directories to save experimentals;
-   `datasets_path`, `evalsets_path`, `results_path`.
-   
-   ```python
-   # paths.yaml (example)
-    datasets_path:
-      "/datasets"
-    evalsets_path:
-      "/evalsets"
-    results_path:
-      "/results"
-   ```
-### 1-dimension
-1. Train 1d regression and place `ckpt.tar` in the `result_path`. 
-   
-2. Run `main.py`.   
-   Please choose kernel function and model.
-   - `bo_kernel`
-     - 'rbf', 'matern', 'periodic'  
-   
-   You should specify gpu number with `--gpu` to use gpu.
-
-```bash
-$ python main.py --task bo --gpu <int> --bo_mode oracle --model oracle --bo_kernel <str>
-$ python main.py --task bo --gpu <int> --model <str> --bo_kernel <str>
+### Training
+Training is exactly the same to meta regression.
+```
+python 1d_gp.py --mode=train --model=tnpa --expid=default
 ```
 
-### multi-dimensions
-
-1. Run `highdim_gp.py`.   
-   Specify `mode`: first, generate the train set, and then train.  
-   Please choose `dimension`(2 or 3) and model.
-   It is recommended that `min_num_points` be 30 and `max_num_points` be 128 when `dimension` is set to 2. (If `dimension` is 3, set to 64,256).
-   Also, specify gpu number with `--gpu` to use gpu.
-
-```bash
-$ python highdim_gp.py --gpu <int> --mode generate --model <str> --dimension <2, 3> --min_num_points <30, 64> --max_num_points <128, 256>
-$ python highdim_gp.py --gpu <int> --mode train --model <str> --dimension <2, 3> --min_num_points <
-30, 64> --max_num_points <128, 256>
+### Evaluation
+Run BO using a trained model.
+```
+python 1d_bo.py --bo_mode models --bo_kernel rbf --model tnpa --expid=default
 ```
 
-2. Run `highdim_bo.py`.   
-   Set `dimension`(2 or 3) and model.
-   Please choose objective function and acquisition function.
-      - `objective`  
-         - 'ackley','cosine','rastrigin','dropwave','goldsteinprice','michalewicz','hartmann'
-      - `acquisition`
-         - 'ucb', 'ei'  
-   
-   Also, specify gpu number with `--gpu` to use gpu.
-```bash
-$ python highdim_bo.py --gpu <int> --objective <str> --dimension <2,3> --acquisition <str> --model <str> --train_min_num_points <30,64> --train_max_num_points <128,256>
+## Multi-dimensional BO
+---
+### Training
+First, generate the training dataset, and then train. Choose `dimension` (2 or 3), which correspond to 2-D and 3-D problems, respectively. It is recommended that `min_num_points` and `max_num_points` are 30 and 128 for 2-D problems, and 64 and 256 for 3-D problems.
+```
+python highdim_gp.py --mode=generate --model=tnpa --dimension=2 --min_num_points=30 --max_num_points=128
+```
+```
+python highdim_gp.py --mode=train --model=tnpa --dimension=2 --min_num_points=30 --max_num_points=128
+```
+
+### Evaluation
+
+Run `highdim_bo.py`.   
+Please choose objective function to evaluate. The following functions are supported: `ackley`, `cosine`, `rastrigin`, `dropwave`, `goldsteinprice`, `michalewicz`, `hartmann`.
+
+```
+python highdim_bo.py --objective=ackley --dimension=2 --model=tnpa --train_min_num_points=30 --train_max_num_points=128
 ```
