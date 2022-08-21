@@ -21,13 +21,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Experiment
-    parser.add_argument('--mode',
-            choices=['train', 'eval',
-            'eval_all_metrics',
-            'eval_all_metrics_multiple_runs',
-            'plot', 'plot_samples',
-            'ensemble', 'eval_multiple_runs'],
-            default='train')
+    parser.add_argument('--mode', choices=['train', 'eval', 'eval_all_metrics', 'plot', 'plot_samples'], default='train')
     parser.add_argument('--expid', type=str, default='default')
     parser.add_argument('--resume', type=str, default=None)
 
@@ -38,7 +32,7 @@ def main():
     parser.add_argument('--model', type=str, default="tnpa")
 
     # Train
-    parser.add_argument('--pretrain', action='store_true', default=False)
+
     parser.add_argument('--train_seed', type=int, default=0)
     parser.add_argument('--train_batch_size', type=int, default=100)
     parser.add_argument('--train_num_samples', type=int, default=4)
@@ -76,9 +70,6 @@ def main():
     model_cls = getattr(load_module(f'models/{args.model}.py'), args.model.upper())
     with open(f'configs/celeba/{args.model}.yaml', 'r') as f:
         config = yaml.safe_load(f)
-    if args.pretrain:
-        assert args.model == 'tnpa'
-        config['pretrain'] = args.pretrain
 
     if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp", "tnpd", "tnpa", "tnpnd"]:
         model = model_cls(**config)

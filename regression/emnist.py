@@ -21,13 +21,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Experiment
-    parser.add_argument('--mode',
-            choices=['train', 'eval',
-            'eval_all_metrics',
-            'eval_all_metrics_multiple_runs',
-            'plot', 'plot_samples', 'ensemble',
-            'eval_multiple_runs'],
-            default='train')
+    parser.add_argument('--mode', choices=['train', 'eval', 'eval_all_metrics', 'plot', 'plot_samples'], default='train')
     parser.add_argument('--expid', type=str, default='default')
     parser.add_argument('--resume', type=str, default=None)
 

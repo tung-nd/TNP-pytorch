@@ -22,16 +22,6 @@ class CelebA(object):
         return self.data[index], self.targets[index]
 
 if __name__ == '__main__':
-
-    # preprocess
-    # before proceeding, download img_align_celeba.zip from
-    # https://drive.google.com/drive/folders/0B7EVK8r0v71pTUZsaXdaSnZBZzg and unzip
-    # ,download list_eval_partitions.txt from
-    # https://drive.google.com/drive/folders/0B7EVK8r0v71pdjI3dmwtNm5jRkE
-    # and download identity_CelebA.txt from
-    # https://drive.google.com/drive/folders/0B7EVK8r0v71pOC0wOVZlQnFfaGs
-    # and place them in ${datasets_path}/celeba folder.
-
     import os
     import os.path as osp
     from PIL import Image
