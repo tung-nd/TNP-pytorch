@@ -18,7 +18,6 @@ class TNPA(TNP):
         nhead,
         dropout,
         num_layers,
-        pretrain
     ):
         super(TNPA, self).__init__(
             dim_x,
@@ -37,12 +36,8 @@ class TNPA(TNP):
             nn.Linear(dim_feedforward, dim_y*2)
         )
 
-        self.pretrain = pretrain
 
     def forward(self, batch, reduce_ll=True):
-        if self.training and self.pretrain:
-            return self.forward_pretrain(batch)
-
         out_encoder = self.encode(batch, autoreg=True)
         out = self.predictor(out_encoder)
         mean, std = torch.chunk(out, 2, dim=-1)
@@ -54,19 +49,6 @@ class TNPA(TNP):
         outs = AttrDict()
         outs.loss = loss
         return outs
-
-    def forward_pretrain(self, batch):
-        out_encoder = self.encode(batch, autoreg=True, pretrain=True)
-        out = self.predictor(out_encoder)
-        mean, std = torch.chunk(out, 2, dim=-1)
-        std = torch.exp(std)
-
-        pred_dist = Normal(mean, std)
-        loss = - pred_dist.log_prob(batch.y[:, 1:]).sum(-1).mean()
-        
-        outs = AttrDict()
-        outs.loss = loss
-        return outs 
 
     def predict(self, xc, yc, xt, num_samples=None):
         if xc.shape[-3] != xt.shape[-3]:

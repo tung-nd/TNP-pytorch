@@ -24,7 +24,6 @@ def main():
     parser.add_argument('--model', default='tnpa')
 
     # train
-    parser.add_argument('--pretrain', action='store_true', default=False)
     parser.add_argument('--bound', type=int, default=2)
     parser.add_argument('--train_batch_size', type=int, default=16)
     parser.add_argument('--max_num_points', type=int, default=256)
@@ -49,9 +48,6 @@ def main():
     with open(f'configs/gp/{args.model}.yaml', 'r') as f:
         config = yaml.safe_load(f)
         config['dim_x'] = args.dimension
-    if args.pretrain:
-        assert args.model == 'tnpa'
-        config['pretrain'] = args.pretrain
 
     model_cls = getattr(load_module(f"models/{args.model}.py"), args.model.upper())
     model = model_cls(**config).to(device)

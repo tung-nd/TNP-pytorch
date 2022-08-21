@@ -28,7 +28,6 @@ def main():
     parser.add_argument('--model', type=str, default="tnpa")
 
     # Train
-    parser.add_argument('--pretrain', action='store_true', default=False)
     parser.add_argument('--train_seed', type=int, default=0)
     parser.add_argument('--train_batch_size', type=int, default=16)
     parser.add_argument('--train_num_samples', type=int, default=4)
@@ -61,9 +60,6 @@ def main():
     model_cls = getattr(load_module(f'models/{args.model}.py'), args.model.upper())
     with open(f'configs/gp/{args.model}.yaml', 'r') as f:
         config = yaml.safe_load(f)
-    if args.pretrain:
-        assert args.model == 'tnpa'
-        config['pretrain'] = args.pretrain
 
     if args.model in ["np", "anp", "cnp", "canp", "bnp", "banp", "tnpa", "tnpd", "tnpnd"]:
         model = model_cls(**config)
