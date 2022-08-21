@@ -1,24 +1,13 @@
-## To run CMAB experiment
-
----
-1. Prepare `paths.yaml` in workspace.
-   This includes the directories to save experimentals;
-   `datasets_path`, `evalsets_path`, `results_path`.
-   
-   ```python
-   # paths.yaml (example)
-    datasets_path:
-      "/datasets"
-    evalsets_path:
-      "/evalsets"
-    results_path:
-      "/results"
-   ```
-
-2. Run `main.py` with `--cmab_mode` train/eval.   
-   Please specify gpu number with `--gpu` to use gpu.
-
-```bash
-$ python3 main.py --cmab_mode train --gpu <int>
-$ python3 main.py --cmab_mode eval --gpu <int>
+### Training
+First, we have to train TNPs on randomly sampled wheel data. Training is similar to meta regression.
 ```
+python main.py --cmab_mode=train --model=tnpa --expid=default
+```
+If training for the first time, wheel data will be generated and saved in `datasets`. Model weights and logs will be saved in `results/train-all-R`.
+
+### Evaluate
+After training, we can run contextual bandit to evaluate the trained model.
+```
+python main.py --cmab_mode=eval --model=tnpa --expid=default
+```
+Model weights according to `{expid}` will be loaded and evaluated. If running contextual bandit for the first time, evaluation data wil be generated and saved in `evalsets`. The results will be saved in `results/eval-all-R`.
