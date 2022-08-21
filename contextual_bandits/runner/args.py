@@ -30,7 +30,6 @@ def get_args():
     parser.add_argument('--model', type=str, default="tnpa")
 
     # Training
-    parser.add_argument('--pretrain', action='store_true', default=False)
     parser.add_argument('--lr', type=float, default=5e-4)
     parser.add_argument('--num_epochs', type=int, default=100000)
     parser.add_argument('--print_freq', type=int, default=200)

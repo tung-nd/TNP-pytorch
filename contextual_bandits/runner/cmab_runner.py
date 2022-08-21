@@ -25,9 +25,6 @@ def cmab(args):
         model_cls = getattr(load_module(f'models/{name}.py'), name.upper())  # ex. from models.cnp import CNP
         with open(osp.join("configs", f"{args.cmab_data}", f"{name}.yaml")) as g:
             config = yaml.safe_load(g)
-        if args.pretrain:
-            assert args.model == 'tnpa'
-            config['pretrain'] = args.pretrain
         model = model_cls(**config).to(device)
         model.train()
         path, filename = get_train_path(args)
